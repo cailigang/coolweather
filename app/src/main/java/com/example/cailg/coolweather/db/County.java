@@ -1,4 +1,4 @@
-package com.example.cailg.coolweather;
+package com.example.cailg.coolweather.db;
 
 import org.litepal.crud.DataSupport;
 
