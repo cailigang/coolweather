@@ -1,5 +1,6 @@
 package com.example.cailg.coolweather;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
@@ -9,6 +10,7 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
@@ -21,6 +23,7 @@ import android.widget.Toast;
 import com.bumptech.glide.Glide;
 import com.example.cailg.coolweather.gson.Forecast;
 import com.example.cailg.coolweather.gson.Weather;
+import com.example.cailg.coolweather.service.AutoUpdateService;
 import com.example.cailg.coolweather.util.HttpUtil;
 import com.example.cailg.coolweather.util.Utility;
 
@@ -82,15 +85,18 @@ public class WeatherActivity extends AppCompatActivity {
         if(weatherString != null){
             Weather weather = Utility.handleWeatherResponse(weatherString);
             mWeatherId = weather.basic.weatherId;
+            Log.d("WeatherActivity","weatherId is " + mWeatherId);
             showWeatherInfo(weather);
         }else{
             mWeatherId = getIntent().getStringExtra("weather_id");
+            Log.d("WeatherActivity","2weatherId is " + mWeatherId);
             weatherLayout.setVisibility(View.INVISIBLE);
             requestWeather(mWeatherId);
         }
         swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
+                Log.d("WeatherActivity","3weatherId is " + mWeatherId);
                 requestWeather(mWeatherId);
             }
         });
@@ -138,6 +144,7 @@ public class WeatherActivity extends AppCompatActivity {
                                     getDefaultSharedPreferences(WeatherActivity.this).edit();
                             editor.putString("weather", responseText);
                             editor.apply();
+                            mWeatherId = weather.basic.weatherId;
                             showWeatherInfo(weather);
                         }else{
                             Toast.makeText(WeatherActivity.this, "获取天气失败",
@@ -186,6 +193,8 @@ public class WeatherActivity extends AppCompatActivity {
         sportText.setText(sport);
 
         weatherLayout.setVisibility(View.VISIBLE);
+        Intent intent = new Intent(this, AutoUpdateService.class);
+        startService(intent);
     }
 
     private void loadBingPic() {
