@@ -50,6 +50,7 @@ public class WeatherActivity extends AppCompatActivity {
     private String mWeatherId;
     public DrawerLayout drawerLayout;
     private Button homeButton;
+    private String countyName;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,9 +90,16 @@ public class WeatherActivity extends AppCompatActivity {
             showWeatherInfo(weather);
         }else{
             mWeatherId = getIntent().getStringExtra("weather_id");
-            Log.d("WeatherActivity","2weatherId is " + mWeatherId);
-            weatherLayout.setVisibility(View.INVISIBLE);
-            requestWeather(mWeatherId);
+            if(mWeatherId != null)
+            {
+                Log.d("WeatherActivity","2weatherId is " + mWeatherId);
+                weatherLayout.setVisibility(View.INVISIBLE);
+                requestWeather(mWeatherId);
+            }else{
+                countyName = getIntent().getStringExtra("county_name");
+                weatherLayout.setVisibility(View.INVISIBLE);
+                requestWeatherByCounty(countyName);
+            }
         }
         swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
@@ -117,6 +125,48 @@ public class WeatherActivity extends AppCompatActivity {
 
     public void requestWeather(final String weatherId){
         String weatherUrl = "https://free-api.heweather.com/v5/weather?city=" + weatherId +
+                "&key=61eb14c36abb468f90a7fd2d2c2d8013";
+        HttpUtil.sendOkHttpRequest(weatherUrl, new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                e.printStackTrace();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(WeatherActivity.this, "获取天气信息失败",
+                                Toast.LENGTH_SHORT).show();
+                        swipeRefresh.setRefreshing(false);
+                    }
+                });
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                final String responseText = response.body().string();
+                final Weather weather = Utility.handleWeatherResponse(responseText);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if(weather != null && "ok".equals(weather.status)) {
+                            SharedPreferences.Editor editor = PreferenceManager.
+                                    getDefaultSharedPreferences(WeatherActivity.this).edit();
+                            editor.putString("weather", responseText);
+                            editor.apply();
+                            mWeatherId = weather.basic.weatherId;
+                            showWeatherInfo(weather);
+                        }else{
+                            Toast.makeText(WeatherActivity.this, "获取天气失败1",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                        swipeRefresh.setRefreshing(false);
+                    }
+                });
+            }
+        });
+    }
+
+    public void requestWeatherByCounty(final String CountyName){
+        String weatherUrl = "https://free-api.heweather.com/v5/weather?city=" + CountyName +
                 "&key=61eb14c36abb468f90a7fd2d2c2d8013";
         HttpUtil.sendOkHttpRequest(weatherUrl, new Callback() {
             @Override

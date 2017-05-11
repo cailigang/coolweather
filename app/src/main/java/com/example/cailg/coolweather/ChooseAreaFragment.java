@@ -1,9 +1,14 @@
 package com.example.cailg.coolweather;
 
+
 import android.content.Intent;
+import android.graphics.Color;
+import android.os.Message;
 import android.support.v4.app.Fragment;
 import android.app.ProgressDialog;
 import android.os.Bundle;
+import android.os.Handler;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,6 +19,10 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.baidu.location.BDLocation;
+import com.baidu.location.BDLocationListener;
+import com.baidu.location.LocationClient;
+import com.baidu.location.LocationClientOption;
 import com.example.cailg.coolweather.db.City;
 import com.example.cailg.coolweather.db.County;
 import com.example.cailg.coolweather.db.Province;
@@ -43,6 +52,32 @@ public class ChooseAreaFragment extends Fragment {
     private ListView listView;
     private ArrayAdapter<String> adapter;
     private List<String> dataList = new ArrayList<>();
+    private TextView autoLocText;
+    private String locText;
+    public static final int UPDATE_LOC = 1;
+
+    public void logMsg(String str) {
+        final String s = str;
+        try {
+            if (autoLocText != null){
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        autoLocText.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                autoLocText.setText(s);
+                                autoLocText.setTextColor(Color.parseColor("#00ffff"));
+                            }
+                        });
+
+                    }
+                }).start();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     private List<Province> provinceList;    //省列表
     private List<City> cityList;            //市列表
@@ -50,22 +85,58 @@ public class ChooseAreaFragment extends Fragment {
     private Province selectedProvince;      //选中的省份
     private City selectedCity;              //选中的城市
     private int currentLevel;               //当前选中的级别
+    public LocationClient mLocationClient;
 
     @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        //定位功能
+        Log.d("ChooseAreaFragment", "onActivityCreated start");
+        mLocationClient = new LocationClient(getActivity().getApplicationContext());
+        mLocationClient.registerLocationListener(new MyLocationListener());
+    }
+
+        @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.choose_area, container, false);
         titleText = (TextView) view.findViewById(R.id.title_text);
         backButton = (Button) view.findViewById(R.id.back_button);
         listView = (ListView) view.findViewById(R.id.list_view);
+        autoLocText = (TextView) view.findViewById(R.id.auto_loc);
+        autoLocText.setText("定位中");
         adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, dataList);
         listView.setAdapter(adapter);
+
         return view;
+    }
+
+    private void initLocation(){
+        LocationClientOption option = new LocationClientOption();
+        option.setScanSpan(0);
+        option.setIsNeedAddress(true);
+        mLocationClient.setLocOption(option);
+    }
+
+    public class MyLocationListener implements BDLocationListener {
+        @Override
+        public void onReceiveLocation(BDLocation location){
+            locText = location.getDistrict();
+            logMsg(locText);
+        }
+
+        @Override
+        public void onConnectHotSpotMessage(String s, int i) {
+
+        }
     }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
+
+        initLocation();
+        mLocationClient.start();
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -91,6 +162,7 @@ public class ChooseAreaFragment extends Fragment {
                 }
             }
         });
+
         backButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -98,6 +170,24 @@ public class ChooseAreaFragment extends Fragment {
                     queryCities();
                 }else if(currentLevel == LEVEL_CITY) {
                     queryProvinces();
+                }
+            }
+        });
+
+        autoLocText.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(getContext(), "textView clicked", Toast.LENGTH_SHORT).show();
+                if(getActivity() instanceof MainActivity){
+                    Intent intent = new Intent(getActivity(), WeatherActivity.class);
+                    intent.putExtra("county_name", locText);
+                    startActivity(intent);
+                    getActivity().finish();
+                }else if(getActivity() instanceof WeatherActivity){
+                    WeatherActivity activity = (WeatherActivity) getActivity();
+                    activity.drawerLayout.closeDrawers();
+                    activity.swipeRefresh.setRefreshing(true);
+                    activity.requestWeatherByCounty(locText);
                 }
             }
         });
@@ -223,5 +313,11 @@ public class ChooseAreaFragment extends Fragment {
         if(progressDialog != null){
             progressDialog.dismiss();
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        mLocationClient.stop();
     }
 }
